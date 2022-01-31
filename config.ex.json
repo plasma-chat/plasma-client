@@ -1,0 +1,27 @@
+{
+    "address": "iipython.cf",
+    "username": "iiPython",
+    "themes": {
+        "active": "custom",
+        "schemes": {
+            "custom": {
+                "prompt": "[lblue]> ",
+                "elements": {
+                    "time": "lblue",
+                    "name": "cyan"
+                }
+            }
+        }
+    },
+    "plugins": {
+        "iiPython.mentions": {
+            "tags": [
+                "lblue"
+            ]
+        },
+        "iiPython.themes": {
+            "overwrite_config_on_change": true
+        }
+    },
+    "show_history": true
+}
