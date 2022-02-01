@@ -9,7 +9,7 @@ from .config import config
 from typing import Any, List
 
 # Grab plugin config
-plugin_config = config.get("plugins", {})
+plugin_config = config.data.get("plugins", {})
 
 # Plugin manager
 class PluginManager(object):

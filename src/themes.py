@@ -18,7 +18,7 @@ class ThemeManager(object):
         self.elems = {}
 
         # Load themes
-        self.themes = config.get("themes", {"active": "default"})
+        self.themes = config.data.get("themes", {"active": "default"})
         if "schemes" not in self.themes:
             self.themes["schemes"] = {"default": self._default}
 
@@ -43,3 +43,6 @@ class ThemeManager(object):
             colormap[color] = to_ansi(f"38;2;{r};{g};{b}")
 
         self.data = self.themes["schemes"][name]
+        for key in ["prompt"]:
+            if key not in self.data:
+                self.data[key] = self._default[key]
