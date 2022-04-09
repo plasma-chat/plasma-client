@@ -54,7 +54,8 @@ class PluginManager(object):
                     self.name = name
 
                 def print(self, text: str) -> None:
-                    self.eventmgr.print_line(f"[lcyan]{self.name}[/] [lblack]|[/] {text}")
+                    for n, line in enumerate(text.split("\n")):
+                        self.eventmgr.print_line(f"{f'[lcyan]{self.name}[/]' if n == 0 else (' ' * len(self.name))} [lblack]|[/] {line}")
 
             pm = PrintManager(self.eventmgr, plugin_class.meta["name"])
             plugin_class.print = pm.print

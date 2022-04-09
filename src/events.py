@@ -3,15 +3,22 @@
 # Modules
 import os
 import time
+import tempfile
 from copy import copy
 from typing import Tuple
-from .config import config
 from threading import Thread
 from datetime import datetime
 from types import FunctionType
+from iipython import keys, readchar, clear, color, Socket
+
+from .config import config
 from .themes import ThemeManager
 from .plugins import PluginManager
-from iipython import keys, readchar, clear, color, Socket
+try:
+    from src.vendor.termimg.image import TermImage
+
+except ImportError:
+    TermImage = None
 
 # Initialization
 def scale_bytes(size: int) -> str:
@@ -32,12 +39,13 @@ def truncate(text: str, length: int) -> str:
 
 # Context
 class EventContext(object):
-    def __init__(self, data: dict) -> None:
+    def __init__(self, data: dict, in_history: bool = False) -> None:
         self.raw = data
         self.type = data["type"]
         self.data = data["data"]
         self.server = data["server"]
         self.timestamp = data["ts"]
+        self.in_history = in_history
 
 # Event Manager
 class EventManager(object):
@@ -51,7 +59,7 @@ class EventManager(object):
         # Formatters
         self.data_formatters = {
             "m.msg": lambda d: (d.data["author"]["username"], self.pluginmgr.on_msg(d.data["content"])),
-            "m.bin": lambda d: (d.data["author"]["username"], f"{truncate(d.data['filename'], 16)} ({scale_bytes(d.data['size'])})\nDownload with [yellow]/files down {d.data['id']}[/]"),
+            "m.bin": self.format_bin,
             "u.join": lambda d: ("System", f"[blue]{d.data['username']} [green]has joined the server."),
             "u.leave": lambda d: ("System", f"[blue]{d.data['username']} [red]has left the server.")
         }
@@ -61,6 +69,28 @@ class EventManager(object):
             "utc12h": lambda ts: datetime.utcfromtimestamp(ts).strftime("%I:%M %p"),
             "utc24h": lambda ts: datetime.utcfromtimestamp(ts).strftime("%H:%M")
         }
+
+    def format_bin(self, d: EventContext) -> tuple:
+        def print_image(data: EventContext) -> None:
+            file = tempfile.NamedTemporaryFile(delete = False, suffix = "." + d.data["filename"].split(".")[-1])
+            file.write(bytes.fromhex(data.data["binary"]))
+            d.data["content"] = str(TermImage.from_file(file.name))
+            d.type = "m.msg"
+            self.print_event(d)
+            try:
+                os.remove(file.name)
+
+            except Exception:
+                pass
+
+        if d.data["filename"].split(".")[-1] in ["png", "jpg", "jpeg", "ico"] and TermImage is not None and not d.in_history:
+            self.hook_event("onimagerecv", print_image)
+            self.sock.sendjson({"type": "d.file", "data": {"id": d.data["id"], "callback": "onimagerecv"}})
+
+        return (
+            d.data["author"]["username"],
+            f"{truncate(d.data['filename'], 16)} ({scale_bytes(d.data['size'])})\nDownload with [yellow]/files down {d.data['id']}[/]"
+        )
 
     def send_loop(self) -> None:
         history = {"entries": [], "index": -1, "store": None}
@@ -165,7 +195,7 @@ class EventManager(object):
                 elif event.type == "m.history":
                     if config.data.get("show_history", True):
                         for item in event.data["items"]:
-                            self.print_event(EventContext(item))
+                            self.print_event(EventContext(item, in_history = True))
 
                     self.print_event(EventContext({
                         "type": "m.msg",
@@ -183,7 +213,8 @@ class EventManager(object):
                     if cb in self.events:
                         self.events[cb](event)
                         del self.events[cb]
-                        continue
+
+                    continue
 
                 self.print_event(event)
 
